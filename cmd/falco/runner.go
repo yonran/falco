@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/ysugimoto/falco/formatter"
 	"github.com/ysugimoto/falco/interpreter"
 	icontext "github.com/ysugimoto/falco/interpreter/context"
+	"github.com/ysugimoto/falco/interpreter/precompiler"
 	"github.com/ysugimoto/falco/lexer"
 	"github.com/ysugimoto/falco/linter"
 	"github.com/ysugimoto/falco/linter/context"
@@ -559,5 +561,120 @@ func (r *Runner) Format(rslv resolver.Resolver) error {
 	if _, err := io.Copy(w, formatted); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (r *Runner) Precompile(rslv resolver.Resolver, outputDir string) error {
+	// Create precompiler
+	pc := precompiler.New(rslv, r.snippets)
+
+	// Precompile VCL
+	precompiledVCL, err := pc.Precompile(false) // Set TLS to false for simplicity
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	// Create output directory if it doesn't exist
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return errors.WithStack(err)
+	}
+
+	// Write main VCL statements to a file
+	mainFile := filepath.Join(outputDir, "main.vcl")
+	if err := r.writeStatementsToFile(mainFile, precompiledVCL.GetMainStatements()); err != nil {
+		return errors.WithStack(err)
+	}
+
+	// Write each subroutine to separate files
+	for name, sub := range precompiledVCL.GetSubroutines() {
+		filename := filepath.Join(outputDir, fmt.Sprintf("subroutine_%s.vcl", name))
+
+		// Create a complete subroutine declaration with resolved statements
+		decl := sub.GetDeclaration()
+		resolvedDecl := &ast.SubroutineDeclaration{
+			Meta:       decl.Meta,
+			Name:       decl.Name,
+			ReturnType: decl.ReturnType,
+			Block: &ast.BlockStatement{
+				Meta:       decl.Block.Meta,
+				Statements: sub.GetResolvedStatements(),
+			},
+		}
+
+		if err := r.writeStatementsToFile(filename, []ast.Statement{resolvedDecl}); err != nil {
+			return errors.WithStack(err)
+		}
+	}
+
+	return nil
+}
+
+func (r *Runner) writeStatementsToFile(filename string, statements []ast.Statement) error {
+	// Create a VCL structure to format
+	vcl := &ast.VCL{
+		Statements: statements,
+	}
+
+	// Format the VCL
+	formatted := formatter.New(r.config.Format).Format(vcl)
+
+	// Write to file
+	file, err := os.Create(filename)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	defer file.Close()
+
+	if _, err := io.Copy(file, formatted); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
+}
+
+func (r *Runner) PrecompileToStdout(rslv resolver.Resolver) error {
+	// Create precompiler
+	pc := precompiler.New(rslv, r.snippets)
+
+	// Precompile VCL
+	precompiledVCL, err := pc.Precompile(false) // Set TLS to false for simplicity
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	// Create a VCL structure that combines everything
+	var allStatements []ast.Statement
+
+	// Add main statements first
+	allStatements = append(allStatements, precompiledVCL.GetMainStatements()...)
+
+	// Add each subroutine as a complete declaration
+	for _, sub := range precompiledVCL.GetSubroutines() {
+		decl := sub.GetDeclaration()
+		resolvedDecl := &ast.SubroutineDeclaration{
+			Meta:       decl.Meta,
+			Name:       decl.Name,
+			ReturnType: decl.ReturnType,
+			Block: &ast.BlockStatement{
+				Meta:       decl.Block.Meta,
+				Statements: sub.GetResolvedStatements(),
+			},
+		}
+		allStatements = append(allStatements, resolvedDecl)
+	}
+
+	// Create a VCL structure to format
+	vcl := &ast.VCL{
+		Statements: allStatements,
+	}
+
+	// Format the VCL
+	formatted := formatter.New(r.config.Format).Format(vcl)
+
+	// Write to stdout
+	if _, err := io.Copy(os.Stdout, formatted); err != nil {
+		return errors.WithStack(err)
+	}
+
 	return nil
 }

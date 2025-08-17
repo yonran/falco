@@ -23,6 +23,8 @@ func printHelp(cmd string) {
 		printConsoleHelp()
 	case subcommandFormat:
 		printFormatHelp()
+	case subcommandPrecompile:
+		printPrecompileHelp()
 	default:
 		printGlobalHelp()
 	}
@@ -54,6 +56,7 @@ Subcommands:
     test      : Run local testing for provided VCLs
     console   : Run terminal console
     fmt       : Run formatter for provided VCLs
+    precompile: Precompile VCL and output resolved files
 
 See subcommands help with:
     falco [subcommand] -h
@@ -222,5 +225,27 @@ files argument accepts glob file patterns
 
 Simple format example:
     falco fmt /path/to/vcl/main.vcl
+	`))
+}
+
+func printPrecompileHelp() {
+	writeln(white, strings.TrimSpace(`
+Usage:
+    falco precompile [flags] file output_directory
+
+Flags:
+    -I, --include_path : Add include path
+    -h, --help         : Show this help
+    -r, --remote       : Connect with Fastly API
+
+This command precompiles VCL by resolving all includes, snippets, and boilerplate macros,
+then outputs the fully resolved VCL files to the specified directory.
+
+Output files:
+    main.vcl                  : Contains main VCL statements (backends, ACLs, tables, etc.)
+    subroutine_[name].vcl     : Contains each subroutine with all resolved statements
+
+Simple precompile example:
+    falco precompile -I . /path/to/vcl/main.vcl ./output
 	`))
 }

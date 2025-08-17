@@ -54,14 +54,15 @@ var (
 )
 
 const (
-	subcommandLint      = "lint"
-	subcommandTerraform = "terraform"
-	subcommandSimulate  = "simulate"
-	subcommandDAP       = "dap"
-	subcommandStats     = "stats"
-	subcommandTest      = "test"
-	subcommandConsole   = "console"
-	subcommandFormat    = "fmt"
+	subcommandLint       = "lint"
+	subcommandTerraform  = "terraform"
+	subcommandSimulate   = "simulate"
+	subcommandDAP        = "dap"
+	subcommandStats      = "stats"
+	subcommandTest       = "test"
+	subcommandConsole    = "console"
+	subcommandFormat     = "fmt"
+	subcommandPrecompile = "precompile"
 )
 
 // Command return code constants
@@ -122,6 +123,10 @@ func main() {
 			fetcher = terraform.NewTerraformFetcher(fastlyServices)
 		}
 		action = c.Commands.At(1)
+	case subcommandPrecompile:
+		// "precompile" command provides single file of service and output directory
+		resolvers, err = resolver.NewFileResolvers(c.Commands.At(1), c.IncludePaths)
+		action = c.Commands.At(0)
 	case subcommandSimulate, subcommandLint, subcommandStats, subcommandTest:
 		// "lint", "simulate", "stats", and "test" command provides single file of service,
 		// then resolvers size is always 1
@@ -210,6 +215,8 @@ func main() {
 			exitErr = runStats(runner, v)
 		case subcommandFormat:
 			exitErr = runFormat(runner, v)
+		case subcommandPrecompile:
+			exitErr = runPrecompile(runner, v, c)
 		default:
 			exitErr = runLint(runner, v)
 		}
@@ -549,5 +556,31 @@ func runFormat(runner *Runner, rslv resolver.Resolver) error {
 		}
 		return ErrExit
 	}
+	return nil
+}
+
+func runPrecompile(runner *Runner, rslv resolver.Resolver, c *config.Config) error {
+	// Check if output directory is provided
+	if len(c.Commands) < 3 {
+		// No output directory provided, output to stdout
+		if err := runner.PrecompileToStdout(rslv); err != nil {
+			if err != ErrParser {
+				writeln(red, err.Error())
+			}
+			return ErrExit
+		}
+		return nil
+	}
+
+	outputDir := c.Commands.At(2)
+
+	if err := runner.Precompile(rslv, outputDir); err != nil {
+		if err != ErrParser {
+			writeln(red, err.Error())
+		}
+		return ErrExit
+	}
+
+	writeln(green, "VCL precompiled successfully to %s", outputDir)
 	return nil
 }
