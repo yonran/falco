@@ -16,11 +16,12 @@ import (
 	"github.com/ysugimoto/falco/interpreter/exception"
 	"github.com/ysugimoto/falco/interpreter/http"
 	"github.com/ysugimoto/falco/interpreter/limitations"
+	"github.com/ysugimoto/falco/interpreter/precompiler"
 	"github.com/ysugimoto/falco/interpreter/process"
 	"github.com/ysugimoto/falco/interpreter/value"
 	"github.com/ysugimoto/falco/interpreter/variable"
-	"github.com/ysugimoto/falco/lexer"
-	"github.com/ysugimoto/falco/parser"
+	"github.com/ysugimoto/falco/resolver"
+	"github.com/ysugimoto/falco/snippet"
 )
 
 type Interpreter struct {
@@ -52,6 +53,12 @@ func New(options ...context.Option) *Interpreter {
 	}
 }
 
+// PrecompileVCL creates a precompiled VCL from the given context options
+func PrecompileVCL(rslv resolver.Resolver, snippets *snippet.Snippets, enableTLS bool) (*precompiler.PrecompiledVCL, error) {
+	pc := precompiler.New(rslv, snippets)
+	return pc.Precompile(enableTLS)
+}
+
 func (i *Interpreter) SetScope(scope context.Scope) {
 	i.ctx.Scope = scope
 	switch scope {
@@ -76,6 +83,14 @@ func (i *Interpreter) SetScope(scope context.Scope) {
 	}
 }
 
+func (i *Interpreter) SetCurrentDescribeScope(scope string) {
+	i.ctx.CurrentDescribeScope = scope
+}
+
+func (i *Interpreter) SetCurrentSubroutineKey(key string) {
+	i.ctx.CurrentSubroutineKey = key
+}
+
 func (i *Interpreter) restart() error {
 	i.ctx.Restarts++
 	i.Debugger.Message(fmt.Sprintf("Restarted (%d) time", i.ctx.Restarts))
@@ -93,40 +108,28 @@ func (i *Interpreter) restart() error {
 func (i *Interpreter) ProcessInit(r *http.Request) error {
 	ctx := context.New(i.options...)
 
-	main, err := ctx.Resolver.MainVCL()
-	if err != nil {
-		i.Debugger.Message(err.Error())
-		return errors.WithStack(err)
-	}
-	if err := limitations.CheckFastlyVCLLimitation(main.Data); err != nil {
-		i.Debugger.Message(err.Error())
-		return errors.WithStack(err)
-	}
-	vcl, err := parser.New(
-		lexer.NewFromString(main.Data, lexer.WithFile(main.Name)),
-	).ParseVCL()
-	if err != nil {
-		// parse error
-		i.Debugger.Message(err.Error())
-		return errors.WithStack(err)
-	}
-
-	// If remote snippets exists, prepare parse and prepend to main VCL
-	if ctx.FastlySnippets != nil {
-		snippets, err := ctx.FastlySnippets.EmbedSnippets(ctx.TLSServer)
+	// If PrecompiledVCL is not available, we need to compile it first
+	if ctx.PrecompiledVCL == nil {
+		main, err := ctx.Resolver.MainVCL()
 		if err != nil {
+			i.Debugger.Message(err.Error())
 			return errors.WithStack(err)
 		}
-		for _, snip := range snippets {
-			s, err := parser.New(lexer.NewFromString(snip.Data, lexer.WithFile(snip.Name))).ParseVCL()
-			if err != nil {
-				// parse error
-				i.Debugger.Message(err.Error())
-				return errors.WithStack(err)
-			}
-			vcl.Statements = append(s.Statements, vcl.Statements...)
+		if err := limitations.CheckFastlyVCLLimitation(main.Data); err != nil {
+			i.Debugger.Message(err.Error())
+			return errors.WithStack(err)
 		}
+
+		// Create precompiler and compile VCL
+		pc := precompiler.New(ctx.Resolver, ctx.FastlySnippets)
+		precompiledVCL, err := pc.Precompile(ctx.TLSServer)
+		if err != nil {
+			i.Debugger.Message(err.Error())
+			return errors.WithStack(err)
+		}
+		ctx.PrecompiledVCL = precompiledVCL
 	}
+
 	ctx.RequestStartTime = time.Now()
 	i.ctx = ctx
 	i.ctx.Request = r
@@ -150,15 +153,29 @@ func (i *Interpreter) ProcessInit(r *http.Request) error {
 		i.ctx.OriginalHost = "api.fastly.com"
 	}
 
-	vcl.Statements, err = i.resolveIncludeStatement(vcl.Statements, true)
-	if err != nil {
-		return errors.WithStack(err)
+	// Use precompiled statements instead of resolving at runtime
+	statements := i.ctx.PrecompiledVCL.GetMainStatements()
+
+	// Add precompiled subroutines to context
+	for name, precompiledSub := range i.ctx.PrecompiledVCL.GetSubroutines() {
+		decl := precompiledSub.GetDeclaration()
+		if decl.ReturnType != nil {
+			// Functional subroutines go into SubroutineFunctions
+			i.ctx.SubroutineFunctions[name] = decl
+		} else {
+			// Regular subroutines go into Subroutines
+			i.ctx.Subroutines[name] = decl
+		}
 	}
+
 	// instrumenting if coverage measurement is enabled
 	if i.ctx.Coverage != nil {
+		// Create a temporary VCL structure for instrumentation
+		vcl := &ast.VCL{Statements: statements}
 		i.instrument(vcl)
+		statements = vcl.Statements
 	}
-	if err := i.ProcessDeclarations(vcl.Statements); err != nil {
+	if err := i.ProcessDeclarations(statements); err != nil {
 		return errors.WithStack(err)
 	}
 	if err := limitations.CheckFastlyResourceLimit(i.ctx); err != nil {

@@ -1,6 +1,7 @@
 package interpreter
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -43,15 +44,52 @@ func (i *Interpreter) ProcessSubroutine(sub *ast.SubroutineDeclaration, ds Debug
 		i.callStack = i.callStack[:len(i.callStack)-1]
 	}()
 
-	// Try to extract fastly reserved subroutine macro
-	if err := i.extractBoilerplateMacro(sub); err != nil {
-		return NONE, errors.WithStack(err)
+	// Use precompiled statements if available
+	var statements []ast.Statement
+	if i.ctx.PrecompiledVCL == nil {
+		return NONE, errors.WithStack(exception.System("PrecompiledVCL == nil"))
+	}
+	// Implement scoped subroutine lookup: check current describe scope first, then global scope
+	subroutines := i.ctx.PrecompiledVCL.GetSubroutines()
+	var precompiledSub context.PrecompiledSubroutine
+	var found bool
+
+	// First, try to find subroutine in current describe scope (if any)
+	if i.ctx.CurrentDescribeScope != "" {
+		scopedName := i.ctx.CurrentDescribeScope + "." + sub.Name.Value
+		if scopedSub, ok := subroutines[scopedName]; ok {
+			precompiledSub = scopedSub
+			found = true
+		}
 	}
 
-	statements, err := i.resolveIncludeStatement(sub.Block.Statements, false)
-	if err != nil {
-		return NONE, errors.WithStack(err)
+	// If not found in current scope, try global scope
+	// First check if we have a specific subroutine key (for handling duplicate names)
+	// But only if the key matches the subroutine name we're looking for
+	if !found && i.ctx.CurrentSubroutineKey != "" {
+		// Extract the subroutine name from the key (everything before the #)
+		keyParts := strings.Split(i.ctx.CurrentSubroutineKey, "#")
+		if len(keyParts) > 0 && keyParts[0] == sub.Name.Value {
+			if keyedSub, ok := subroutines[i.ctx.CurrentSubroutineKey]; ok {
+				precompiledSub = keyedSub
+				found = true
+			}
+		}
 	}
+
+	// Fallback to exact name match
+	if !found {
+		if globalSub, ok := subroutines[sub.Name.Value]; ok {
+			precompiledSub = globalSub
+			found = true
+		}
+	}
+
+	if !found {
+		return NONE, errors.WithStack(exception.System(fmt.Sprintf("PrecompiledVCL.GetSubroutines[%s] == nil (scope: %s)", sub.Name.Value, i.ctx.CurrentDescribeScope)))
+	}
+
+	statements = precompiledSub.GetResolvedStatements()
 
 	// Ignore debug status and must return state, not a value
 	_, state, _, err := i.ProcessBlockStatement(statements, ds, false)

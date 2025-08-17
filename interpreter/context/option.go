@@ -92,3 +92,9 @@ func WithTLServer(tls bool) Option {
 		c.TLSServer = tls
 	}
 }
+
+func WithPrecompiledVCL(vcl PrecompiledVCL) Option {
+	return func(c *Context) {
+		c.PrecompiledVCL = vcl
+	}
+}

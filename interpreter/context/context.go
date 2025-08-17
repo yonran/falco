@@ -44,10 +44,23 @@ var (
 	defaultStaleDuration, _ = time.ParseDuration("9223372036854ms") // nolint: errcheck
 )
 
+// PrecompiledVCL interface to avoid circular imports
+type PrecompiledVCL interface {
+	GetMainStatements() []ast.Statement
+	GetSubroutines() map[string]PrecompiledSubroutine
+}
+
+// PrecompiledSubroutine interface to avoid circular imports
+type PrecompiledSubroutine interface {
+	GetDeclaration() *ast.SubroutineDeclaration
+	GetResolvedStatements() []ast.Statement
+}
+
 type Context struct {
 	TLSServer           bool
 	Resolver            resolver.Resolver
 	FastlySnippets      *snippet.Snippets
+	PrecompiledVCL      PrecompiledVCL
 	Acls                map[string]*value.Acl
 	Backends            map[string]*value.Backend
 	Tables              map[string]*ast.TableDeclaration
@@ -58,6 +71,12 @@ type Context struct {
 	SubroutineFunctions map[string]*ast.SubroutineDeclaration
 	OriginalHost        string
 	IsActualResponse    bool
+
+	// Current describe block scope for namespaced subroutine lookup
+	CurrentDescribeScope string
+
+	// Current subroutine key for handling duplicate subroutine names
+	CurrentSubroutineKey string
 
 	OverrideMaxBackends    int
 	OverrideMaxAcls        int
