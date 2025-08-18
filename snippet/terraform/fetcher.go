@@ -133,9 +133,10 @@ func (f *TerraformFetcher) Backends() ([]*snippet.Backend, error) {
 	for _, s := range f.filterService() {
 		for _, backend := range s.Backends {
 			b = append(b, &snippet.Backend{
-				Name:    backend.Name,
-				Shield:  backend.Shield,
-				Address: backend.Address,
+				Name:             backend.Name,
+				Shield:           backend.Shield,
+				Address:          backend.Address,
+				RequestCondition: backend.RequestCondition,
 			})
 		}
 	}

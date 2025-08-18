@@ -27,9 +27,10 @@ type Dictionary struct {
 // TODO(davinci26): We can unmarshall all the properties from the TF file
 // and lint them to make sure they have sane values.
 type Backend struct {
-	Name    string
-	Shield  *string
-	Address *string
+	Name             string
+	Shield           *string
+	Address          *string
+	RequestCondition *string
 }
 
 type VCLSnippet struct {

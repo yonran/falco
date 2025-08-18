@@ -253,9 +253,10 @@ func (f *FastlyApiFetcher) Backends() ([]*snippet.Backend, error) {
 	r := make([]*snippet.Backend, len(backends))
 	for i, b := range backends {
 		r[i] = &snippet.Backend{
-			Name:    b.Name,
-			Shield:  b.Shield,
-			Address: b.Address,
+			Name:             b.Name,
+			Shield:           b.Shield,
+			Address:          b.Address,
+			RequestCondition: b.RequestCondition,
 		}
 	}
 	return r, nil

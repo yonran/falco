@@ -34,6 +34,10 @@ type TerraformPlannedInput struct {
 	} `json:"planned_values"`
 }
 
+func UnmarshalTerraformPlannedInput(buf []byte) ([]*FastlyService, error) {
+	return unmarshalTerraformPlannedInput(buf)
+}
+
 func unmarshalTerraformPlannedInput(buf []byte) ([]*FastlyService, error) {
 	var root TerraformPlannedInput
 

@@ -180,6 +180,24 @@ if (obj.status == {{ .StatusCode }}) {{"{"}}
 `,
 		))
 
+var backendSelectionTemplate = template.Must(
+	template.New("backendselection").
+		Funcs(helperFuncs).
+		Parse(
+			`# BEGIN backend selection
+{{ range .NonConditionBackends -}}
+set req.backend = F_{{ . | sanitize }};
+{{ end}}
+{{ range .Backends -}}
+if ({{ .ConditionStatement }}) {
+  # Condition: {{ .ConditionName }} (priority: {{ .Priority }})
+  set req.backend = F_{{ .Name | sanitize }};
+}
+{{ end -}}
+# END backend selection
+`),
+)
+
 // Render functions
 
 func renderDictionary(dict *Dictionary) (*Item, error) {

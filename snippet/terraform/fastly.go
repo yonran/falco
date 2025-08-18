@@ -45,9 +45,10 @@ type LoggingEndpoint struct {
 // TODO(davinci26): We can unmarshall all the properties from the TF file
 // and lint them to make sure they have sane values.
 type Backend struct {
-	Name    string  `json:"name"`
-	Shield  *string `json:"shield"`
-	Address *string `json:"address"`
+	Name             string  `json:"name"`
+	Shield           *string `json:"shield"`
+	Address          *string `json:"address"`
+	RequestCondition *string `json:"request_condition"`
 }
 
 type Director struct {

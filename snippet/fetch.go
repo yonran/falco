@@ -1,6 +1,7 @@
 package snippet
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -81,6 +82,21 @@ func Fetch(fetcher Fetcher) (*Snippets, error) {
 		fmt.Println("Error!")
 		return nil, errors.WithStack(err)
 	}
+
+	// Generate backend selection snippets for recv scope after all data is fetched
+	backendSelectionSnippets, err := generateBackendSelectionSnippets(fetcher)
+	if err != nil {
+		fmt.Println("Error!")
+		return nil, errors.WithStack(err)
+	}
+
+	if len(backendSelectionSnippets) > 0 {
+		if _, ok := snippets.ScopedSnippets["recv"]; !ok {
+			snippets.ScopedSnippets["recv"] = []Item{}
+		}
+		snippets.ScopedSnippets["recv"] = append(snippets.ScopedSnippets["recv"], backendSelectionSnippets...)
+	}
+
 	fmt.Println("Done.")
 	return snippets, nil
 }
@@ -249,4 +265,100 @@ func fetchConditions(fetcher Fetcher) (map[string]*Condition, error) {
 		ret[cond.Name] = cond
 	}
 	return ret, nil
+}
+
+type BackendInfo struct {
+	Name               string
+	ConditionName      string
+	ConditionStatement string
+	Priority           int64 // Add priority for proper ordering
+}
+
+func generateBackendSelectionSnippets(fetcher Fetcher) ([]Item, error) {
+	// Get backends and conditions
+	backends, err := fetcher.Backends()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	conditions, err := fetcher.Conditions()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	// Create a map of condition names to conditions for REQUEST type only
+	conditionMap := make(map[string]*Condition)
+	for _, c := range conditions {
+		if c.Type == RequestPhase {
+			conditionMap[c.Name] = c
+		}
+	}
+
+	// Filter backends that have request conditions and resolve them
+	var conditionBackends []BackendInfo
+	var nonConditionBackends []string
+	for _, b := range backends {
+		if b.RequestCondition != nil && *b.RequestCondition != "" {
+			if condition, exists := conditionMap[*b.RequestCondition]; exists {
+				conditionBackends = append(conditionBackends, BackendInfo{
+					Name:               b.Name,
+					ConditionName:      condition.Name,
+					ConditionStatement: condition.Statement,
+					Priority:           condition.Priority,
+				})
+			}
+		} else {
+			nonConditionBackends = append(nonConditionBackends, b.Name)
+		}
+	}
+
+	// "If there are no backends with conditions that match the request,
+	// then the backend without any conditions is chosen.
+	// If there are multiple such backends, one is chosen arbitrarily."
+	// https://www.fastly.com/documentation/reference/api/services/backend/
+	// sort for consistency. Descending alphabetical order since last assignment wins
+	sort.Slice(nonConditionBackends, func(i, j int) bool {
+		return nonConditionBackends[i] > nonConditionBackends[j]
+	})
+
+	// "If multiple backends are defined, the backend that is used for a request
+	// is the one with the highest-priority condition attached to it,
+	// out of all conditions that this request satisfies.
+	// If multiple conditions match the request with the same (highest) priority,
+	// one is chosen arbitrarily."
+	// https://www.fastly.com/documentation/reference/api/services/backend/
+	// Sort backends by priority ascending, then by name descending for consistency
+	// so that the last assignment in an "if" will win
+	sort.Slice(conditionBackends, func(i, j int) bool {
+		if conditionBackends[i].Priority != conditionBackends[j].Priority {
+			return conditionBackends[i].Priority < conditionBackends[j].Priority
+		}
+		return conditionBackends[i].Name > conditionBackends[j].Name
+	})
+
+	// Render the backend selection VCL
+	return renderBackendSelection(conditionBackends, nonConditionBackends)
+}
+
+func renderBackendSelection(conditionBackends []BackendInfo, nonConditionBackends []string) ([]Item, error) {
+	buf := pool.Get().(*bytes.Buffer) // nolint:errcheck
+	defer pool.Put(buf)
+
+	buf.Reset()
+	data := struct {
+		Backends             []BackendInfo
+		NonConditionBackends []string
+	}{
+		Backends:             conditionBackends,
+		NonConditionBackends: nonConditionBackends,
+	}
+
+	if err := backendSelectionTemplate.Execute(buf, data); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	return []Item{{
+		Name: "Falco.BackendSelection",
+		Data: buf.String(),
+	}}, nil
 }
