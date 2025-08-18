@@ -146,12 +146,45 @@ func (f *Formatter) formatBlockStatement(stmt *ast.BlockStatement) string {
 	buf.Reset()
 	buf.WriteString("{\n")
 	buf.WriteString(group.String())
-	if len(stmt.Infix) > 0 {
-		buf.WriteString(f.formatComment(stmt.Infix, "\n", stmt.Meta.Nest))
+
+	// Handle infix comments - check if they should be moved to trailing position
+	// This is specifically for cases like backend selection where comments like "// Condition: ..."
+	// should appear after the closing brace instead of inside the block
+	var insideComments, trailingComments ast.Comments
+	for _, comment := range stmt.Infix {
+		// Move comments to trailing position only if:
+		// 1. They have PrefixedLineFeed (are on their own line)
+		// 2. They start with "// Condition:" (specific to backend selection)
+		// 3. The block is empty (no statements inside)
+		if comment.PrefixedLineFeed &&
+			strings.HasPrefix(strings.TrimSpace(comment.Value), "// Condition:") &&
+			len(stmt.Statements) == 0 {
+			trailingComments = append(trailingComments, comment)
+		} else {
+			insideComments = append(insideComments, comment)
+		}
+	}
+
+	if len(insideComments) > 0 {
+		buf.WriteString(f.formatComment(insideComments, "\n", stmt.Meta.Nest))
 	}
 	// need subtract 1 because RIGHT_BRACE is unnested
 	buf.WriteString(f.indent(stmt.Meta.Nest - 1))
 	buf.WriteString("}")
+
+	// Add trailing comments after the closing brace
+	if len(trailingComments) > 0 {
+		if isInlineComment(trailingComments) {
+			// For inline comments (/* */), add space before
+			buf.WriteString(" ")
+			buf.WriteString(f.formatComment(trailingComments, "", 0))
+		} else {
+			// For line comments (//), add space and newline after
+			buf.WriteString(" ")
+			buf.WriteString(f.formatComment(trailingComments, "", 0))
+			buf.WriteString("\n")
+		}
+	}
 
 	return trimMutipleLineFeeds(buf.String())
 }

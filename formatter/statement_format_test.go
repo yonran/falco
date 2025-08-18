@@ -920,6 +920,29 @@ func TestFormatIfStatement(t *testing.T) {
 				LineWidth:            80,
 			},
 		},
+		{
+			name: "if statement with trailing comments before EOF",
+			input: `sub vcl_recv {
+	# BEGIN section
+	if (false) {
+	} else if (req.url ~ "^/test/") {
+		# Comment: description
+		set req.http.Test = "1";
+	}
+	# END section
+}
+`,
+			expect: `sub vcl_recv {
+  # BEGIN section
+  if (false) {
+  } else if (req.url ~ "^/test/") {
+    # Comment: description
+    set req.http.Test = "1";
+  }
+  # END section
+}
+`,
+		},
 	}
 
 	for _, tt := range tests {

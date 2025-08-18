@@ -153,11 +153,16 @@ func (p *Parser) ReadPeek() {
 func (p *Parser) Trailing() ast.Comments {
 	cs := ast.Comments{}
 
+	// Check if the peek token is EOF - if so, all remaining comments should be trailing
+	isEOF := p.peekToken.Token.Type == token.EOF
+
 	// Divide trailing comment for current node and leading comment for next node
 	if len(p.peekToken.Leading) > 0 {
 		updated := []*ast.Comment{}
 		for i, l := range p.peekToken.Leading {
-			if l.PrefixedLineFeed {
+			// If we're at EOF, treat all comments as trailing comments
+			// Otherwise, use the normal logic where PrefixedLineFeed comments remain as leading
+			if !isEOF && l.PrefixedLineFeed {
 				updated = p.peekToken.Leading[i:]
 				break
 			}
