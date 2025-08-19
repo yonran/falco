@@ -45,22 +45,20 @@ func (i *Interpreter) TestProcessInit(r *http.Request) error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	i.ctx.BackendResponse = &http.Response{
-		Response: &ghttp.Response{
-			StatusCode:    ghttp.StatusOK,
-			Status:        ghttp.StatusText(ghttp.StatusOK),
-			Proto:         "HTTP/1.1",
-			ProtoMajor:    1,
-			ProtoMinor:    1,
-			Header:        ghttp.Header{},
-			Body:          io.NopCloser(strings.NewReader(testBackendResponseBody)),
-			ContentLength: int64(len(testBackendResponseBody)),
-			Close:         true,
-			Uncompressed:  false,
-			Trailer:       ghttp.Header{},
-			Request:       i.ctx.BackendRequest.Clone(context.Background()).Request,
-		},
-	}
+	i.ctx.BackendResponse = http.WrapResponse(&ghttp.Response{
+		StatusCode:    ghttp.StatusOK,
+		Status:        ghttp.StatusText(ghttp.StatusOK),
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Header:        ghttp.Header{},
+		Body:          io.NopCloser(strings.NewReader(testBackendResponseBody)),
+		ContentLength: int64(len(testBackendResponseBody)),
+		Close:         true,
+		Uncompressed:  false,
+		Trailer:       ghttp.Header{},
+		Request:       i.ctx.BackendRequest.Clone(context.Background()).Request,
+	})
 	i.ctx.Response = i.ctx.BackendResponse.Clone()
 	i.ctx.Object = i.ctx.BackendResponse.Clone()
 	return nil

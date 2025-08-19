@@ -27,22 +27,20 @@ func (i *Interpreter) ConsoleProcessInit() error {
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	i.ctx.BackendResponse = &http.Response{
-		Response: &ghttp.Response{
-			StatusCode:    ghttp.StatusOK,
-			Status:        ghttp.StatusText(ghttp.StatusOK),
-			Proto:         "HTTP/1.1",
-			ProtoMajor:    1,
-			ProtoMinor:    1,
-			Header:        ghttp.Header{},
-			Body:          io.NopCloser(strings.NewReader(consoleBackendResponseBody)),
-			ContentLength: int64(len(consoleBackendResponseBody)),
-			Close:         true,
-			Uncompressed:  false,
-			Trailer:       ghttp.Header{},
-			Request:       nil,
-		},
-	}
+	i.ctx.BackendResponse = http.WrapResponse(&ghttp.Response{
+		StatusCode:    ghttp.StatusOK,
+		Status:        ghttp.StatusText(ghttp.StatusOK),
+		Proto:         "HTTP/1.1",
+		ProtoMajor:    1,
+		ProtoMinor:    1,
+		Header:        ghttp.Header{},
+		Body:          io.NopCloser(strings.NewReader(consoleBackendResponseBody)),
+		ContentLength: int64(len(consoleBackendResponseBody)),
+		Close:         true,
+		Uncompressed:  false,
+		Trailer:       ghttp.Header{},
+		Request:       nil,
+	})
 	i.ctx.Response = i.ctx.BackendResponse.Clone()
 	i.ctx.Object = i.ctx.BackendResponse.Clone()
 	i.ctx.Scope = context.InitScope
