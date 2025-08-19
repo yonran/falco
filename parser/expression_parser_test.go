@@ -914,6 +914,7 @@ sub vcl_recv {
 										EndPosition:        47,
 									},
 									Operator: "&&",
+									Explicit: true,
 									Left: &ast.Ident{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -1089,4 +1090,31 @@ sub vcl_recv {
 		}
 		assert(t, vcl, expect)
 	})
+}
+
+func TestInfixExpressionExplicitFlag(t *testing.T) {
+	// Test that parser sets Explicit: true for infix expressions
+	input := `sub test { if (obj.status == 301) { } }`
+	vcl, err := New(lexer.NewFromString(input)).ParseVCL()
+	if err != nil {
+		t.Fatalf("Parse error: %s", err)
+	}
+	
+	// Extract the infix expression from the parsed AST
+	sub := vcl.Statements[0].(*ast.SubroutineDeclaration)
+	ifStmt := sub.Block.Statements[0].(*ast.IfStatement)
+	infixExpr := ifStmt.Condition.(*ast.InfixExpression)
+	
+	// Verify parser set Explicit: true
+	if !infixExpr.Explicit {
+		t.Error("Parser should set Explicit: true for infix expressions")
+	}
+	
+	// Verify String() works correctly with the Explicit flag
+	result := infixExpr.String()
+	expected := "(obj.status == 301)"
+	
+	if result != expected {
+		t.Errorf("InfixExpression.String() with Explicit: true failed:\nExpected: %q\nGot:      %q", expected, result)
+	}
 }

@@ -952,6 +952,22 @@ func TestFormatIfStatement(t *testing.T) {
 	}
 }
 
+func TestFormatInfixExpressions(t *testing.T) {
+	// Test that the formatter works correctly
+	input := `sub vcl_recv {
+	if (obj.status == 301) {
+		set obj.response = "OK";
+	}
+}`
+	expect := `sub vcl_recv {
+  if (obj.status == 301) {
+    set obj.response = "OK";
+  }
+}
+`
+	assert(t, input, expect, nil)
+}
+
 func TestSwitchStatement(t *testing.T) {
 	tests := []struct {
 		name   string

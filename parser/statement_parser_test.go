@@ -992,6 +992,7 @@ sub vcl_recv {
 										EndPosition:        45,
 									},
 									Operator: "~",
+									Explicit: true,
 									Left: &ast.Ident{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -1173,6 +1174,7 @@ sub vcl_recv {
 										EndPosition:        74,
 									},
 									Operator: "&&",
+									Explicit: true,
 									Left: &ast.InfixExpression{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -1190,6 +1192,7 @@ sub vcl_recv {
 											EndPosition:        34,
 										},
 										Operator: "~",
+										Explicit: true,
 										Left: &ast.Ident{
 											Meta: &ast.Meta{
 												Token: token.Token{
@@ -1244,6 +1247,7 @@ sub vcl_recv {
 											EndPosition:        74,
 										},
 										Operator: "==",
+										Explicit: true,
 										Left: &ast.Ident{
 											Meta: &ast.Meta{
 												Token: token.Token{
@@ -1426,6 +1430,7 @@ sub vcl_recv {
 										EndPosition:        63,
 									},
 									Operator: "||",
+									Explicit: true,
 									Left: &ast.InfixExpression{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -1443,6 +1448,7 @@ sub vcl_recv {
 											EndPosition:        34,
 										},
 										Operator: "~",
+										Explicit: true,
 										Left: &ast.Ident{
 											Meta: &ast.Meta{
 												Token: token.Token{
@@ -1497,6 +1503,7 @@ sub vcl_recv {
 											EndPosition:        63,
 										},
 										Operator: "==",
+										Explicit: true,
 										Left: &ast.Ident{
 											Meta: &ast.Meta{
 												Token: token.Token{
@@ -1679,6 +1686,7 @@ sub vcl_recv {
 										EndPosition:        27,
 									},
 									Operator: "||",
+									Explicit: true,
 									Left: &ast.Boolean{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -1714,6 +1722,7 @@ sub vcl_recv {
 											EndPosition:        27,
 										},
 										Operator: "&&",
+										Explicit: true,
 										Left: &ast.Boolean{
 											Meta: &ast.Meta{
 												Token: token.Token{
@@ -1900,6 +1909,7 @@ sub vcl_recv {
 										EndPosition:        34,
 									},
 									Operator: "~",
+									Explicit: true,
 									Left: &ast.Ident{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -2138,6 +2148,7 @@ sub vcl_recv {
 										EndPosition:        34,
 									},
 									Operator: "~",
+									Explicit: true,
 									Left: &ast.Ident{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -2246,6 +2257,7 @@ sub vcl_recv {
 												EndPosition:        52,
 											},
 											Operator: "~",
+											Explicit: true,
 											Left: &ast.Ident{
 												Meta: &ast.Meta{
 													Token: token.Token{
@@ -2486,6 +2498,7 @@ sub vcl_recv {
 										EndPosition:        34,
 									},
 									Operator: "~",
+									Explicit: true,
 									Left: &ast.Ident{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -2594,6 +2607,7 @@ sub vcl_recv {
 												EndPosition:        51,
 											},
 											Operator: "~",
+											Explicit: true,
 											Left: &ast.Ident{
 												Meta: &ast.Meta{
 													Token: token.Token{
@@ -2834,6 +2848,7 @@ sub vcl_recv {
 										EndPosition:        34,
 									},
 									Operator: "~",
+									Explicit: true,
 									Left: &ast.Ident{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -2942,6 +2957,7 @@ sub vcl_recv {
 												EndPosition:        50,
 											},
 											Operator: "~",
+											Explicit: true,
 											Left: &ast.Ident{
 												Meta: &ast.Meta{
 													Token: token.Token{
@@ -3208,6 +3224,7 @@ sub vcl_recv {
 										Value: "req.http.Host",
 									},
 									Operator: "~",
+									Explicit: true,
 									Right: &ast.String{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -3316,6 +3333,7 @@ sub vcl_recv {
 												Value: "req.http.X-Forwarded-For",
 											},
 											Operator: "~",
+											Explicit: true,
 											Right: &ast.String{
 												Meta: &ast.Meta{
 													Token: token.Token{

@@ -495,6 +495,7 @@ sub vcl_recv {
 										Value: "var.IsOk",
 									},
 									Operator: "&&",
+									Explicit: true,
 									Right: &ast.Ident{
 										Meta: &ast.Meta{
 											Token: token.Token{
@@ -740,6 +741,7 @@ sub /* subroutine ident leading */ vcl_recv /* subroutine block leading */ {
 									Value: "req.http.Host",
 								},
 								Operator: "&&",
+								Explicit: true,
 								Right: &ast.InfixExpression{
 									Meta: &ast.Meta{
 										Token: token.Token{
@@ -775,6 +777,7 @@ sub /* subroutine ident leading */ vcl_recv /* subroutine block leading */ {
 										Value: "req.http.Foo",
 									},
 									Operator: "==",
+									Explicit: true,
 									Right: &ast.String{
 										Meta: &ast.Meta{
 											Token: token.Token{

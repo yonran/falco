@@ -197,6 +197,7 @@ func (p *Parser) ParseInfixExpression(left ast.Expression) (ast.Expression, erro
 	exp := &ast.InfixExpression{
 		Meta:     left.GetMeta().CloneWithoutComments(),
 		Operator: p.curToken.Token.Literal,
+		Explicit: true,
 		Left:     left,
 	}
 
