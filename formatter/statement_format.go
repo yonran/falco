@@ -287,10 +287,7 @@ func (f *Formatter) formatIfStatement(stmt *ast.IfStatement) string {
 		if isInlineComment(stmt.Consequence.Trailing) {
 			buf.WriteString(" " + v)
 		} else {
-			// Otherwise, print to the new line
-			buf.WriteString("\n")
-			buf.WriteString(f.indent(stmt.Consequence.Nest-1) + v)
-			buf.WriteString("\n")
+			// no need to print comment again; it was already printed by formatBlockStatement
 		}
 	}
 
