@@ -42,7 +42,7 @@ func Assert_state(
 
 	var message string
 	if len(args) == 2 {
-		message = value.Unwrap[*value.String](args[0]).Value
+		message = value.Unwrap[*value.String](args[1]).Value
 	} else {
 		message = fmt.Sprintf(
 			"state should be moved to %s, got %s",
