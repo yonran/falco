@@ -26,6 +26,7 @@ func Test_Querystring_get(t *testing.T) {
 		{input: &value.String{Value: "/?a=1"}, second: &value.String{Value: "b"}, expect: &value.String{IsNotSet: true}},
 		{input: &value.String{Value: "/?foo"}, second: &value.String{Value: "foo"}, expect: &value.String{IsNotSet: true}},
 		{input: &value.String{Value: "/?a=1&b=2&c=3&d=4&b=5"}, second: &value.String{Value: "b"}, expect: &value.String{Value: "2"}},
+		{input: &value.String{Value: "/?a=b=c"}, second: &value.String{Value: "a"}, expect: &value.String{Value: "b=c"}},
 	}
 
 	for i, tt := range tests {

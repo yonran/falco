@@ -50,7 +50,7 @@ func Querystring_get(ctx *context.Context, args ...value.Value) (value.Value, er
 	// ?name= => should return not set, but returns empty string
 	// so we try to parse from RawQuery string, not using url.Value
 	for _, query := range strings.Split(qs, "&") {
-		sp := strings.Split(query, "=")
+		sp := strings.SplitN(query, "=", 2)
 		if len(sp) < 2 || sp[0] == "" {
 			continue
 		}
