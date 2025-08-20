@@ -34,7 +34,7 @@ func assertStatement[T ast.Statement](t *testing.T, input string, expect T) {
 		t.Errorf("Unexpected decoding error: %s", err)
 		return
 	}
-	if diff := cmp.Diff(actual, expect); diff != "" {
+	if diff := cmp.Diff(expect, actual); diff != "" {
 		t.Errorf("Decode result mismatch, diff=%s", diff)
 	}
 }

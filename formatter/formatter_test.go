@@ -28,7 +28,7 @@ func assert(t *testing.T, input, expect string, conf *config.FormatConfig) strin
 	}
 	ret := New(c).Format(vcl)
 	v, _ := ioutil.ReadAll(ret)
-	if diff := cmp.Diff(string(v), expect); diff != "" {
+	if diff := cmp.Diff(expect, string(v)); diff != "" {
 		t.Errorf("Format result has diff: %s", diff)
 	}
 	return string(v) // return formatted result for debugging
