@@ -147,44 +147,12 @@ func (f *Formatter) formatBlockStatement(stmt *ast.BlockStatement) string {
 	buf.WriteString("{\n")
 	buf.WriteString(group.String())
 
-	// Handle infix comments - check if they should be moved to trailing position
-	// This is specifically for cases like backend selection where comments like "// Condition: ..."
-	// should appear after the closing brace instead of inside the block
-	var insideComments, trailingComments ast.Comments
-	for _, comment := range stmt.Infix {
-		// Move comments to trailing position only if:
-		// 1. They have PrefixedLineFeed (are on their own line)
-		// 2. They start with "// Condition:" (specific to backend selection)
-		// 3. The block is empty (no statements inside)
-		if comment.PrefixedLineFeed &&
-			strings.HasPrefix(strings.TrimSpace(comment.Value), "// Condition:") &&
-			len(stmt.Statements) == 0 {
-			trailingComments = append(trailingComments, comment)
-		} else {
-			insideComments = append(insideComments, comment)
-		}
-	}
-
-	if len(insideComments) > 0 {
-		buf.WriteString(f.formatComment(insideComments, "\n", stmt.Meta.Nest))
+	if len(stmt.Infix) > 0 {
+		buf.WriteString(f.formatComment(stmt.Infix, "\n", stmt.Meta.Nest))
 	}
 	// need subtract 1 because RIGHT_BRACE is unnested
 	buf.WriteString(f.indent(stmt.Meta.Nest - 1))
 	buf.WriteString("}")
-
-	// Add trailing comments after the closing brace
-	if len(trailingComments) > 0 {
-		if isInlineComment(trailingComments) {
-			// For inline comments (/* */), add space before
-			buf.WriteString(" ")
-			buf.WriteString(f.formatComment(trailingComments, "", 0))
-		} else {
-			// For line comments (//), add space and newline after
-			buf.WriteString(" ")
-			buf.WriteString(f.formatComment(trailingComments, "", 0))
-			buf.WriteString("\n")
-		}
-	}
 
 	return trimMutipleLineFeeds(buf.String())
 }
@@ -282,12 +250,19 @@ func (f *Formatter) formatIfStatement(stmt *ast.IfStatement) string {
 	}
 
 	buf.WriteString(f.formatBlockStatement(stmt.Consequence))
-	if v := f.formatComment(stmt.Consequence.Trailing, "", 0); v != "" {
-		// If comment is inline , concat to the same line
-		if isInlineComment(stmt.Consequence.Trailing) {
-			buf.WriteString(" " + v)
-		} else {
-			// no need to print comment again; it was already printed by formatBlockStatement
+	// Handle trailing comments that should appear right after the closing brace
+	// These need manual handling when there are else/elseif clauses following
+	if len(stmt.Consequence.Trailing) > 0 && (len(stmt.Another) > 0 || stmt.Alternative != nil) {
+		if v := f.formatComment(stmt.Consequence.Trailing, "", 0); v != "" {
+			// If comment is inline, concat to the same line
+			if isInlineComment(stmt.Consequence.Trailing) {
+				buf.WriteString(" " + v)
+			} else {
+				// Otherwise, print to the new line
+				buf.WriteString("\n")
+				buf.WriteString(f.indent(stmt.Consequence.Nest-1) + v)
+				buf.WriteString("\n")
+			}
 		}
 	}
 

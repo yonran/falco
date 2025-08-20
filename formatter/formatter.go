@@ -135,8 +135,34 @@ func (f *Formatter) trailing(trailing ast.Comments) string {
 	if len(trailing) == 0 {
 		return c
 	}
-	c += strings.Repeat(" ", f.conf.TrailingCommentWidth)
-	c += f.formatComment(trailing, "", 0)
+
+	// Handle multiple trailing comments with proper spacing
+	for i, comment := range trailing {
+		if i == 0 {
+			// First comment gets leading spaces
+			c += strings.Repeat(" ", f.conf.TrailingCommentWidth)
+		} else {
+			// Subsequent comments: check if they should be on new line
+			if comment.PrefixedLineFeed {
+				c += "\n"
+			} else {
+				c += " "
+			}
+		}
+
+		// Format the individual comment
+		switch f.conf.CommentStyle {
+		case config.CommentStyleSharp, config.CommentStyleSlash:
+			r := '#' // default as sharp style comment
+			if f.conf.CommentStyle == config.CommentStyleSlash {
+				r = '/'
+			}
+			c += formatCommentCharacter(comment.String(), r)
+		default:
+			c += comment.String()
+		}
+	}
+
 	return c
 }
 

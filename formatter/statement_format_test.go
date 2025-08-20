@@ -1012,6 +1012,53 @@ func TestSwitchStatement(t *testing.T) {
 	}
 }
 
+func TestFormatMultipleTrailingComments(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+		conf   *config.FormatConfig
+	}{
+		{
+			name: "multiple trailing comments with proper spacing",
+			input: `sub vcl_recv {
+	set req.http.Foo = "bar"; // First comment // Second comment
+}`,
+			expect: `sub vcl_recv {
+  set req.http.Foo = "bar";  // First comment // Second comment
+}
+`,
+		},
+		{
+			name: "multiple trailing comments with line feeds",
+			input: `sub vcl_recv {
+	set req.http.Foo = "bar"; // First comment
+// Second comment on new line
+}`,
+			expect: `sub vcl_recv {
+  set req.http.Foo = "bar";  // First comment
+  // Second comment on new line
+}
+`,
+		},
+		{
+			name: "mixed trailing comment styles",
+			input: `sub vcl_recv {
+	set req.http.Foo = "bar"; /* inline */ // line comment
+}`,
+			expect: `sub vcl_recv {
+  set req.http.Foo = "bar";  /* inline */ // line comment
+}
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert(t, tt.input, tt.expect, tt.conf)
+		})
+	}
+}
+
 func TestFormatEmptyLines(t *testing.T) {
 	tests := []struct {
 		name   string
