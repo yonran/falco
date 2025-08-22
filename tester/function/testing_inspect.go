@@ -41,9 +41,9 @@ func Testing_inspect(
 	// So on testing, we need to reference context value directly, not referencing Object response
 	switch id.Value {
 	case variable.OBJ_STATUS:
-		return &value.Integer{Value: ctx.ObjectStatus.Value}, nil
+		return &value.Integer{Value: int64(ctx.Object.StatusCode)}, nil
 	case variable.OBJ_RESPONSE:
-		return &value.String{Value: ctx.ObjectResponse.Value}, nil
+		return &value.String{Value: ctx.Object.Status}, nil
 	}
 
 	// Otherwise, look up for each scope variables

@@ -1,11 +1,7 @@
 package variable
 
 import (
-	"io"
-	"strings"
 	"time"
-
-	"net/http"
 
 	"github.com/pkg/errors"
 	"github.com/ysugimoto/falco/interpreter/context"
@@ -58,7 +54,7 @@ func (v *HitScopeVariables) Get(s context.Scope, name string) (value.Value, erro
 	case OBJ_PROTO:
 		return &value.String{Value: v.ctx.Object.Proto}, nil
 	case OBJ_RESPONSE:
-		return v.ctx.ObjectResponse, nil
+		return &value.String{Value: v.ctx.Object.Status}, nil
 	case OBJ_STALE_IF_ERROR:
 		// alias for obj.grace
 		return v.ctx.ObjectGrace, nil
@@ -108,10 +104,11 @@ func (v *HitScopeVariables) Set(s context.Scope, name, operator string, val valu
 		}
 		return nil
 	case OBJ_RESPONSE:
-		if err := doAssign(v.ctx.ObjectResponse, operator, val); err != nil {
+		status := &value.String{Value: v.ctx.Object.Status}
+		if err := doAssign(status, operator, val); err != nil {
 			return errors.WithStack(err)
 		}
-		v.ctx.Object.Body = io.NopCloser(strings.NewReader(v.ctx.ObjectResponse.Value))
+		v.ctx.Object.Status = status.Value
 		return nil
 	case OBJ_STATUS:
 		i := &value.Integer{Value: 0}
@@ -119,7 +116,6 @@ func (v *HitScopeVariables) Set(s context.Scope, name, operator string, val valu
 			return errors.WithStack(err)
 		}
 		v.ctx.Object.StatusCode = int(i.Value)
-		v.ctx.Object.Status = http.StatusText(int(i.Value))
 		return nil
 	case OBJ_TTL:
 		if err := doAssign(v.ctx.ObjectTTL, operator, val); err != nil {

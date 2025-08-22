@@ -58,32 +58,32 @@ func Assert_error(
 
 	// status code check
 	code := value.Unwrap[*value.Integer](args[0]).Value
-	if ctx.ObjectStatus.Value != code {
+	if int64(ctx.Object.StatusCode) != code {
 		if message == "" {
 			return &value.Boolean{}, errors.NewAssertionError(
-				ctx.ObjectStatus,
+				&value.Integer{Value: int64(ctx.Object.StatusCode)},
 				"Error response code mismatch: expects %d, got %d",
-				code, ctx.ObjectStatus.Value,
+				code, ctx.Object.StatusCode,
 			)
 		}
 		return &value.Boolean{}, errors.NewAssertionError(
-			ctx.ObjectStatus, "%s", message,
+			&value.Integer{Value: int64(ctx.Object.StatusCode)}, "%s", message,
 		)
 	}
 
 	// response string check
 	if len(args) > 1 {
 		response := value.Unwrap[*value.String](args[1]).Value
-		if ctx.ObjectResponse.Value != response {
+		if ctx.Object.Status != response {
 			if message == "" {
 				return &value.Boolean{}, errors.NewAssertionError(
-					ctx.ObjectResponse,
+					&value.String{Value: ctx.Object.Status},
 					"Error response text mismatch: expects %s, got %s",
-					response, ctx.ObjectResponse.Value,
+					response, ctx.Object.Status,
 				)
 			}
 			return &value.Boolean{}, errors.NewAssertionError(
-				ctx.ObjectResponse, "%s", message,
+				&value.String{Value: ctx.Object.Status}, "%s", message,
 			)
 		}
 	}

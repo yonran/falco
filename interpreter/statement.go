@@ -389,9 +389,11 @@ func (i *Interpreter) ProcessErrorStatement(stmt *ast.ErrorStatement) error {
 			return errors.WithStack(err)
 		}
 		// set obj.status and obj.response variable internally
-		if err := assign.Assign(i.ctx.ObjectStatus, code); err != nil {
+		v := &value.Integer{}
+		if err := assign.Assign(v, code); err != nil {
 			return exception.Runtime(&stmt.GetMeta().Token, "%s", err.Error())
 		}
+		i.ctx.Object.StatusCode = int(v.Value)
 	}
 	// Possibility error response is not defined
 	if stmt.Argument != nil {
@@ -399,10 +401,11 @@ func (i *Interpreter) ProcessErrorStatement(stmt *ast.ErrorStatement) error {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-
-		if err := assign.Assign(i.ctx.ObjectResponse, arg); err != nil {
+		v := &value.String{}
+		if err := assign.Assign(v, arg); err != nil {
 			return exception.Runtime(&stmt.GetMeta().Token, "%s", err.Error())
 		}
+		i.ctx.Object.Status = v.Value
 	}
 	return nil
 }

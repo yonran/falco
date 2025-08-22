@@ -3,7 +3,6 @@ package interpreter
 import (
 	"fmt"
 	"io"
-	ghttp "net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -656,19 +655,9 @@ func (i *Interpreter) ProcessError() error {
 	// @see: https://developer.fastly.com/reference/vcl/variables/client-response/resp-is-locally-generated/
 	i.ctx.IsLocallyGenerated = &value.Boolean{Value: true}
 
-	i.ctx.Object = http.WrapResponse(
-		&ghttp.Response{
-			StatusCode:    int(i.ctx.ObjectStatus.Value),
-			Status:        ghttp.StatusText(int(i.ctx.ObjectStatus.Value)),
-			Proto:         "HTTP/1.0",
-			ProtoMajor:    1,
-			ProtoMinor:    1,
-			Header:        ghttp.Header{},
-			Body:          io.NopCloser(strings.NewReader(i.ctx.ObjectResponse.Value)),
-			ContentLength: int64(len(i.ctx.ObjectResponse.Value)),
-			Request:       i.ctx.Request.Request,
-		},
-	)
+	body := ""
+	i.ctx.Object.Body = io.NopCloser(strings.NewReader(body))
+	i.ctx.Object.ContentLength = int64(len(body))
 
 	// Simulate Fastly statement lifecycle
 	// see: https://developer.fastly.com/learning/vcl/using/#the-vcl-request-lifecycle

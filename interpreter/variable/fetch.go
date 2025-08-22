@@ -5,7 +5,6 @@ import (
 	"io"
 	"strings"
 
-	"net/http"
 	"net/url"
 	"path/filepath"
 
@@ -185,7 +184,7 @@ func (v *FetchScopeVariables) Get(s context.Scope, name string) (value.Value, er
 		return &value.String{Value: "HTTP/1.1"}, nil
 
 	case BERESP_RESPONSE:
-		return v.ctx.BackendResponseResponse, nil
+		return &value.String{Value: v.ctx.BackendResponse.Status}, nil
 	case BERESP_STALE_IF_ERROR:
 		return v.ctx.BackendResponseStaleIfError, nil
 	case BERESP_STALE_WHILE_REVALIDATE:
@@ -331,9 +330,11 @@ func (v *FetchScopeVariables) Set(s context.Scope, name, operator string, val va
 		}
 		return nil
 	case BERESP_RESPONSE:
-		if err := doAssign(v.ctx.BackendResponseResponse, operator, val); err != nil {
+		left := &value.String{Value: v.ctx.BackendResponse.Status}
+		if err := doAssign(left, operator, val); err != nil {
 			return errors.WithStack(err)
 		}
+		v.ctx.BackendResponse.Status = left.Value
 		return nil
 	case BERESP_SAINTMODE:
 		if err := doAssign(v.ctx.BackendResponseSaintMode, operator, val); err != nil {
@@ -351,12 +352,11 @@ func (v *FetchScopeVariables) Set(s context.Scope, name, operator string, val va
 		}
 		return nil
 	case BERESP_STATUS:
-		left := &value.Integer{}
+		left := &value.Integer{Value: int64(beresp.StatusCode)}
 		if err := doAssign(left, operator, val); err != nil {
 			return errors.WithStack(err)
 		}
 		beresp.StatusCode = int(left.Value)
-		beresp.Status = http.StatusText(int(left.Value))
 		return nil
 	case BERESP_TTL:
 		if err := doAssign(v.ctx.BackendResponseTTL, operator, val); err != nil {

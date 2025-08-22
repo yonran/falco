@@ -154,7 +154,6 @@ type Context struct {
 	BackendResponseGrace                *value.RTime
 	BackendResponseHipaa                *value.Boolean
 	BackendResponsePCI                  *value.Boolean
-	BackendResponseResponse             *value.String
 	BackendResponseSaintMode            *value.RTime
 	BackendResponseStaleIfError         *value.RTime
 	BackendResponseStaleWhileRevalidate *value.RTime
@@ -162,8 +161,6 @@ type Context struct {
 	BackendResponseTTL                  *value.RTime
 	ObjectGrace                         *value.RTime
 	ObjectTTL                           *value.RTime
-	ObjectStatus                        *value.Integer
-	ObjectResponse                      *value.String
 	IsLocallyGenerated                  *value.Boolean
 	BackendRequestMaxReuseIdleTime      *value.RTime
 
@@ -279,7 +276,6 @@ func New(options ...Option) *Context {
 		BackendResponseGrace:                &value.RTime{},
 		BackendResponseHipaa:                &value.Boolean{},
 		BackendResponsePCI:                  &value.Boolean{},
-		BackendResponseResponse:             &value.String{},
 		BackendResponseSaintMode:            &value.RTime{},
 		BackendResponseStaleIfError:         &value.RTime{},
 		BackendResponseStaleWhileRevalidate: &value.RTime{},
@@ -287,8 +283,6 @@ func New(options ...Option) *Context {
 		BackendResponseTTL:                  &value.RTime{},
 		ObjectGrace:                         &value.RTime{},
 		ObjectTTL:                           &value.RTime{},
-		ObjectStatus:                        &value.Integer{Value: 500},
-		ObjectResponse:                      &value.String{Value: "error"},
 		ReturnState:                         &value.String{IsNotSet: true},
 		IsLocallyGenerated:                  &value.Boolean{},
 		BackendRequestMaxReuseIdleTime:      &value.RTime{},

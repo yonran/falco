@@ -54,8 +54,8 @@ func Test_inspect(t *testing.T) {
 	)
 	ctx.Object = http.WrapResponse(
 		&ghttp.Response{
-			StatusCode:    ghttp.StatusOK,
-			Status:        ghttp.StatusText(ghttp.StatusOK),
+			StatusCode:    ghttp.StatusInternalServerError,
+			Status:        ghttp.StatusText(ghttp.StatusInternalServerError),
 			Proto:         "HTTP/1.1",
 			ProtoMajor:    1,
 			ProtoMinor:    1,
@@ -92,7 +92,7 @@ func Test_inspect(t *testing.T) {
 				t.Errorf("Unexpected error on Testing_inspect, %s", err)
 				return
 			}
-			if diff := cmp.Diff(ret, tt.expect); diff != "" {
+			if diff := cmp.Diff(tt.expect, ret); diff != "" {
 				t.Errorf("return value unmatch, diff=%s", diff)
 			}
 		}

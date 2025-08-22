@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"net/http"
 	"net/netip"
 
 	"github.com/pkg/errors"
@@ -222,12 +221,7 @@ func (v *LogScopeVariables) Get(s context.Scope, name string) (value.Value, erro
 	case RESP_PROTO:
 		return &value.String{Value: v.ctx.Response.Proto}, nil
 	case RESP_RESPONSE:
-		var buf bytes.Buffer
-		if _, err := buf.ReadFrom(v.ctx.Response.Body); err != nil {
-			return value.Null, errors.WithStack(err)
-		}
-		v.ctx.Response.Body = io.NopCloser(bytes.NewReader(buf.Bytes()))
-		return &value.String{Value: buf.String()}, nil
+		return &value.String{Value: v.ctx.Response.Status}, nil
 	case RESP_STATUS:
 		return &value.Integer{Value: int64(v.ctx.Response.StatusCode)}, nil
 
@@ -444,15 +438,11 @@ func (v *LogScopeVariables) Set(s context.Scope, name, operator string, val valu
 		}
 		return nil
 	case RESP_RESPONSE:
-		var buf bytes.Buffer
-		if _, err := buf.ReadFrom(v.ctx.Response.Body); err != nil {
-			return errors.WithStack(err)
-		}
-		left := &value.String{Value: buf.String()}
+		left := &value.String{Value: v.ctx.Response.Status}
 		if err := doAssign(left, operator, val); err != nil {
 			return errors.WithStack(err)
 		}
-		v.ctx.Response.Body = io.NopCloser(strings.NewReader(left.Value))
+		v.ctx.Response.Status = left.Value
 		return nil
 	case RESP_STATUS:
 		left := &value.Integer{Value: int64(v.ctx.Response.StatusCode)}
@@ -460,7 +450,6 @@ func (v *LogScopeVariables) Set(s context.Scope, name, operator string, val valu
 			return errors.WithStack(err)
 		}
 		v.ctx.Response.StatusCode = int(left.Value)
-		v.ctx.Response.Status = http.StatusText(int(left.Value))
 		return nil
 	case SEGMENTED_CACHING_BLOCK_SIZE:
 		if err := doAssign(v.ctx.SegmentedCacheingBlockSize, operator, val); err != nil {
