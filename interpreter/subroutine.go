@@ -23,6 +23,19 @@ const (
 func (i *Interpreter) ProcessSubroutine(sub *ast.SubroutineDeclaration, ds DebugState) (State, error) {
 	i.process.Flows = append(i.process.Flows, process.NewFlow(i.ctx, process.WithSubroutine(sub)))
 
+	// Handle scope switching for lifecycle subroutines when called from tests
+	originalScope := i.ctx.Scope
+	scopeChanged := false
+	if sub.Name.Value == "vcl_miss" && i.ctx.Scope != context.MissScope {
+		i.ctx.Scope = context.MissScope
+		i.vars = variable.NewMissScopeVariables(i.ctx)
+		scopeChanged = true
+	} else if sub.Name.Value == "vcl_pass" && i.ctx.Scope != context.PassScope {
+		i.ctx.Scope = context.PassScope
+		i.vars = variable.NewPassScopeVariables(i.ctx)
+		scopeChanged = true
+	}
+
 	// Store the current values and restore after subroutine has ended
 	regex := i.ctx.RegexMatchedValues
 	local := i.localVars
@@ -42,7 +55,39 @@ func (i *Interpreter) ProcessSubroutine(sub *ast.SubroutineDeclaration, ds Debug
 		i.ctx.SubroutineCalls[sub.Name.Value]++
 		// Pop call stack
 		i.callStack = i.callStack[:len(i.callStack)-1]
+		// Restore original scope if it was changed
+		if scopeChanged {
+			i.ctx.Scope = originalScope
+			// Restore the appropriate variable scope
+			switch originalScope {
+			case context.RecvScope:
+				i.vars = variable.NewRecvScopeVariables(i.ctx)
+			case context.HashScope:
+				i.vars = variable.NewHashScopeVariables(i.ctx)
+			case context.HitScope:
+				i.vars = variable.NewHitScopeVariables(i.ctx)
+			case context.MissScope:
+				i.vars = variable.NewMissScopeVariables(i.ctx)
+			case context.PassScope:
+				i.vars = variable.NewPassScopeVariables(i.ctx)
+			case context.FetchScope:
+				i.vars = variable.NewFetchScopeVariables(i.ctx)
+			case context.DeliverScope:
+				i.vars = variable.NewDeliverScopeVariables(i.ctx)
+			case context.ErrorScope:
+				i.vars = variable.NewErrorScopeVariables(i.ctx)
+			case context.LogScope:
+				i.vars = variable.NewLogScopeVariables(i.ctx)
+			default:
+				i.vars = variable.NewAllScopeVariables(i.ctx)
+			}
+		}
 	}()
+
+	// Set up lifecycle subroutine context to match the main interpreter flow
+	if err := i.setupLifecycleSubroutineContext(sub.Name.Value); err != nil {
+		return NONE, errors.WithStack(err)
+	}
 
 	// Use precompiled statements if available
 	var statements []ast.Statement

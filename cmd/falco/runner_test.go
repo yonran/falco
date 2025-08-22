@@ -413,6 +413,30 @@ func TestTester(t *testing.T) {
 			filter: "*notset/default.test.vcl",
 			passes: 52,
 		},
+		{
+			name:   "copy bereq before vcl_miss or pass",
+			main:   "../../examples/testing/copy_bereq_before_vcl_miss_or_pass/default.vcl",
+			filter: "*/default.test.vcl",
+			passes: 4,
+		},
+		{
+			name:   "setup beresp cacheable before vcl_fetch",
+			main:   "../../examples/testing/setup_beresp_cacheable_before_vcl_fetch/default.vcl",
+			filter: "*/default.test.vcl",
+			passes: 2,
+		},
+		{
+			name:   "copy beresp to resp before vcl_deliver",
+			main:   "../../examples/testing/copy_beresp_to_resp_before_vcl_deliver/default.vcl",
+			filter: "*/default.test.vcl",
+			passes: 21,
+		},
+		{
+			name:   "populate obj status before vcl_error",
+			main:   "../../examples/testing/populate_obj_status_before_vcl_error/default.vcl",
+			filter: "*/default.test.vcl",
+			passes: 2,
+		},
 	}
 
 	for _, tt := range tests {

@@ -24,9 +24,10 @@ import (
 )
 
 type Interpreter struct {
-	vars      variable.Variable
-	localVars variable.LocalVariables
-	lock      sync.Mutex
+	vars          variable.Variable
+	localVars     variable.LocalVariables
+	lock          sync.Mutex
+	previousScope context.Scope
 
 	options []context.Option
 
@@ -59,6 +60,10 @@ func PrecompileVCL(rslv resolver.Resolver, snippets *snippet.Snippets, enableTLS
 }
 
 func (i *Interpreter) SetScope(scope context.Scope) {
+	if i.ctx.Scope != scope {
+		i.previousScope = i.ctx.Scope
+	}
+
 	i.ctx.Scope = scope
 	switch scope {
 	case context.RecvScope:
@@ -409,22 +414,14 @@ func (i *Interpreter) ProcessHash() error {
 func (i *Interpreter) ProcessMiss() error {
 	i.SetScope(context.MissScope)
 
-	if i.ctx.Backend == nil {
-		return exception.Runtime(nil, "No backend determined in MISS")
-	}
-
-	var err error
-	if i.ctx.Backend.Director != nil {
-		i.ctx.BackendRequest, err = i.createDirectorRequest(i.ctx, i.ctx.Backend.Director)
-	} else {
-		i.ctx.BackendRequest, err = i.createBackendRequest(i.ctx, i.ctx.Backend)
-	}
-	if err != nil {
+	// Set up backend request using shared function
+	if err := i.setupBackendRequestContextWithValidation(true); err != nil {
 		return errors.WithStack(err)
 	}
 
 	// Simulate Fastly statement lifecycle
 	// see: https://developer.fastly.com/learning/vcl/using/#the-vcl-request-lifecycle
+	var err error
 	state := FETCH
 	sub, ok := i.ctx.Subroutines[context.FastlyVclNameMiss]
 	if ok {
@@ -517,22 +514,14 @@ func (i *Interpreter) ProcessHit() error {
 func (i *Interpreter) ProcessPass() error {
 	i.SetScope(context.PassScope)
 
-	if i.ctx.Backend == nil {
-		return exception.Runtime(nil, "No backend determined in PASS")
-	}
-
-	var err error
-	if i.ctx.Backend.Director != nil {
-		i.ctx.BackendRequest, err = i.createDirectorRequest(i.ctx, i.ctx.Backend.Director)
-	} else {
-		i.ctx.BackendRequest, err = i.createBackendRequest(i.ctx, i.ctx.Backend)
-	}
-	if err != nil {
+	// Set up backend request using shared function
+	if err := i.setupBackendRequestContextWithValidation(true); err != nil {
 		return errors.WithStack(err)
 	}
 
 	// Simulate Fastly statement lifecycle
 	// see: https://developer.fastly.com/learning/vcl/using/#the-vcl-request-lifecycle
+	var err error
 	state := PASS
 	sub, ok := i.ctx.Subroutines[context.FastlyVclNamePass]
 	if ok {
@@ -697,10 +686,9 @@ func (i *Interpreter) ProcessError() error {
 func (i *Interpreter) ProcessDeliver() error {
 	i.SetScope(context.DeliverScope)
 
-	if i.ctx.Object != nil {
-		i.ctx.Response = i.ctx.Object.Clone()
-	} else if i.ctx.BackendResponse != nil {
-		i.ctx.Response = i.ctx.BackendResponse.Clone()
+	// Set up response using shared function
+	if err := i.setupDeliverContext(); err != nil {
+		return errors.WithStack(err)
 	}
 
 	// Simulate Fastly statement lifecycle
@@ -823,4 +811,74 @@ func (i *Interpreter) determineCacheTTL(resp *http.Response) time.Duration {
 		}
 	}
 	return time.Duration(2 * time.Minute)
+}
+
+// setupLifecycleSubroutineContext sets up the context for VCL lifecycle subroutines
+// This ensures that when tests call these subroutines, they have the same setup as the main interpreter flow
+func (i *Interpreter) setupLifecycleSubroutineContext(subroutineName string) error {
+	switch subroutineName {
+	case "vcl_miss", "vcl_pass":
+		return i.setupBackendRequestContext()
+	case "vcl_fetch":
+		return i.setupFetchContext()
+	case "vcl_deliver":
+		return i.setupDeliverContext()
+	default:
+		return nil // No special setup needed for other subroutines
+	}
+}
+
+// setupBackendRequestContext creates the backend request (used by vcl_miss and vcl_pass)
+func (i *Interpreter) setupBackendRequestContext() error {
+	return i.setupBackendRequestContextWithValidation(false)
+}
+
+// setupBackendRequestContextWithValidation creates the backend request with optional validation
+func (i *Interpreter) setupBackendRequestContextWithValidation(requireBackend bool) error {
+	// Check if we have a backend to work with
+	if i.ctx.Backend == nil {
+		if requireBackend {
+			return exception.Runtime(nil, "No backend determined")
+		}
+		return nil // Don't error for tests - just skip setup
+	}
+
+	// Create the backend request using the same logic as the main interpreter
+	var err error
+	if i.ctx.Backend.Director != nil {
+		i.ctx.BackendRequest, err = i.createDirectorRequest(i.ctx, i.ctx.Backend.Director)
+	} else {
+		i.ctx.BackendRequest, err = i.createBackendRequest(i.ctx, i.ctx.Backend)
+	}
+
+	return err
+}
+
+// setupFetchContext sets up backend response cacheability (used by vcl_fetch)
+func (i *Interpreter) setupFetchContext() error {
+	// Set beresp.cacheable based on status code like the main interpreter does
+	if i.ctx.BackendResponse != nil {
+		isCacheable := cache.IsCacheableStatusCode(i.ctx.BackendResponse.StatusCode)
+		i.ctx.BackendResponseCacheable = &value.Boolean{Value: isCacheable}
+		if isCacheable {
+			i.ctx.BackendResponseTTL = &value.RTime{
+				Value: i.determineCacheTTL(i.ctx.BackendResponse),
+			}
+		}
+	}
+	return nil
+}
+
+// setupDeliverContext copies backend response to response (used by vcl_deliver)
+func (i *Interpreter) setupDeliverContext() error {
+	// Since both beresp.* and obj.* now update the same BackendResponse object,
+	// we can always use BackendResponse as the source for resp.*
+	fmt.Print("setupDeliverContext; Previous Scope: ", i.previousScope, "\n")
+	if i.previousScope == context.FetchScope {
+		i.ctx.Response = i.ctx.BackendResponse.Clone()
+		fmt.Print("copied beresp to resp; beresp.response =", i.ctx.BackendResponse.Status, "; resp.response =", i.ctx.Response.Status, "\n")
+	} else if i.previousScope == context.ErrorScope || i.previousScope == context.HitScope {
+		i.ctx.Response = i.ctx.Object.Clone()
+	}
+	return nil
 }

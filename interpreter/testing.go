@@ -61,6 +61,9 @@ func (i *Interpreter) TestProcessInit(r *http.Request) error {
 	})
 	i.ctx.Response = i.ctx.BackendResponse.Clone()
 	i.ctx.Object = i.ctx.BackendResponse.Clone()
+
+	// After cloning BackendResponse to Object, apply lifecycle setup if needed
+	// This ensures lifecycle-specific context is set up after the general HTTP context
 	return nil
 }
 
